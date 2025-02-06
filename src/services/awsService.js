@@ -81,9 +81,9 @@ export const getAnalysisResults = async (fileName) => {
       ]);
 
     return {
-      stats: await statsResponse.Body.transformToString(),
-      correctData: await correctResponse.Body.transformToString(),
-      incorrectData: await incorrectResponse.Body.transformToString(),
+      stats: await statsResponse.Body.transformToByteArray(),
+      correctData: await correctResponse.Body.transformToByteArray(),
+      incorrectData: await incorrectResponse.Body.transformToByteArray(),
     };
   } catch (error) {
     console.error("❌ Erreur lors de la récupération:", error);

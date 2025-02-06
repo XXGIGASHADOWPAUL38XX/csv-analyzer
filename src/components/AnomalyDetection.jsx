@@ -1,26 +1,21 @@
 import React from "react";
 import { AlertTriangle } from "lucide-react";
+import { CSVToTable } from "react-csv-to-table";
 
-const AnomalyDetection = ({ anomalies = [] }) => (
-  <div className="mt-6">
-    {anomalies.length > 0 ? (
-      <div className="bg-red-50 border-red-200 p-4 rounded">
-        <h3 className="flex items-center text-red-800">
-          <AlertTriangle className="mr-2" />
-          Anomalies Detected
-        </h3>
-        <ul className="mt-2 space-y-1">
-          {anomalies.map((anomaly, index) => (
-            <li key={index} className="text-red-600">
-              {anomaly}
-            </li>
-          ))}
-        </ul>
-      </div>
-    ) : (
-      <div className="bg-green-50 p-4 rounded">No anomalies detected</div>
-    )}
-  </div>
-);
+const AnomalyDetection = ({ incorrectData }) => {
+  if (!incorrectData) return null;
+
+  // Convert byte representation of CSV to string
+  const csvData = new TextDecoder().decode(incorrectData);
+
+  return (
+    <div className="mt-6 bg-white rounded-lg shadow p-6 overflow-x-auto">
+      <h2 className="text-xl font-bold mb-4 flex items-center">
+        <AlertTriangle className="mr-2 text-red-600" /> Anomalies Detected
+      </h2>
+      <CSVToTable data={csvData} />
+    </div>
+  );
+};
 
 export default AnomalyDetection;

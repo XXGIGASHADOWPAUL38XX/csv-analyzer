@@ -1,12 +1,24 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import FileUpload from "./components/FileUpload";
 import AnalysisResults from "./components/AnalysisResults";
 import AnomalyDetection from "./components/AnomalyDetection";
 import FileHistory from "./components/FileHistory";
 import LoadingSpinner from "./components/LoadingSpinner";
 import TestAWS from "./TestAWS"; // ✅ Ajout du test AWS
+import { SQSClient, ReceiveMessageCommand, PurgeQueueCommand } from "@aws-sdk/client-sqs";
+import { getAnalysisResults } from "./services/awsService";
 
 const App = () => {
+  const sqsClient = new SQSClient({
+      region: 'eu-north-1',
+      credentials: {
+        accessKeyId: "AKIA4SZHNX5SSUNHQ3X2",
+        secretAccessKey: "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",
+      },
+  });
+
+  const queueUrl = "https://sqs.eu-north-1.amazonaws.com/864981729125/csv_sqs";
+
   const [results, setResults] = useState(null);
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -20,7 +32,6 @@ const App = () => {
       },
     ]);
 
-    // Simuler un appel API pour récupérer les résultats après l'upload
     setLoading(true);
     setTimeout(() => {
       setResults({
@@ -33,6 +44,45 @@ const App = () => {
       setLoading(false);
     }, 2000);
   };
+
+
+const pollSQS = async () => {
+    try {
+      const command = new ReceiveMessageCommand({
+        QueueUrl: queueUrl,
+        MaxNumberOfMessages: 1,
+        WaitTimeSeconds: 0,
+      });
+
+      const data = await sqsClient.send(command);
+
+      if (data.Messages) {
+        const messageBody = JSON.parse(data.Messages[0].Body);
+
+        const newResults = await getAnalysisResults(messageBody["detail"]["message"]);
+        setResults((prevResults) => {
+          return newResults;
+        });
+
+        const purgeCommand = new PurgeQueueCommand({ QueueUrl: queueUrl });
+        await sqsClient.send(purgeCommand);
+      } else {
+        console.log("No new messages in the queue.");
+      }
+    } catch (error) {
+      console.error("Error receiving message from SQS:", error);
+    }
+  };
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log(results)
+      pollSQS();
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, []);
+
 
   return (
     <div className="max-w-4xl mx-auto p-6">
@@ -50,8 +100,8 @@ const App = () => {
       {/* Résultats de l'analyse */}
       {results && !loading && (
         <>
-          <AnalysisResults results={results} />
-          <AnomalyDetection anomalies={results.anomalies} />
+          <AnalysisResults results={results.stats} />
+          <AnomalyDetection anomalies={results.incorrectData} />
         </>
       )}
 
