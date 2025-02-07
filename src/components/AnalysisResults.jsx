@@ -1,19 +1,35 @@
 import React from "react";
-import { FileText } from "lucide-react";
-import { CSVToTable } from "react-csv-to-table";
 
-const AnalysisResults = ({ stats }) => {
-  if (!stats) return null;
-
-  // Convert byte representation of CSV to string
-  const csvData = new TextDecoder().decode(stats);
-
+const AnalysisResults = ({ results }) => {
   return (
-    <div className="bg-white rounded-lg shadow p-6 overflow-x-auto">
-      <h2 className="text-xl font-bold mb-4 flex items-center">
-        <FileText className="mr-2" /> Analysis Results
-      </h2>
-      <CSVToTable data={csvData} />
+    <div className="bg-white p-4 shadow-md rounded-md mt-4">
+      <h2 className="text-xl font-bold mb-2">📊 Résultats de l'analyse</h2>
+      {results.length === 0 ? (
+        <p className="text-gray-500">Aucune donnée disponible.</p>
+      ) : (
+        <table className="w-full border-collapse border border-gray-300">
+          <thead>
+            <tr className="bg-gray-100">
+              {Object.keys(results[0]).map((col) => (
+                <th key={col} className="border p-2">
+                  {col}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {results.map((row, index) => (
+              <tr key={index} className="border-t">
+                {Object.values(row).map((val, i) => (
+                  <td key={i} className="border p-2">
+                    {val}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 };

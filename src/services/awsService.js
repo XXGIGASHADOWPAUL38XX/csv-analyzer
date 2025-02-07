@@ -3,8 +3,9 @@ import {
   PutObjectCommand,
   GetObjectCommand,
 } from "@aws-sdk/client-s3";
+import Papa from "papaparse";
 
-// Configuration avec vos credentials
+// 📌 Configuration AWS
 const s3Client = new S3Client({
   region: "eu-north-1",
   credentials: {
@@ -13,14 +14,22 @@ const s3Client = new S3Client({
   },
 });
 
-// Upload de fichier vers S3
+// 📌 Fonction pour parser un CSV en JSON
+const parseCSV = (csvString) => {
+  return new Promise((resolve) => {
+    Papa.parse(csvString, {
+      header: true,
+      skipEmptyLines: true,
+      dynamicTyping: true,
+      complete: (result) => resolve(result.data),
+    });
+  });
+};
+
+// 📂 **Upload d'un fichier vers S3**
 export const uploadToS3 = async (file) => {
   try {
-    console.log("📤 Début upload:", {
-      nom: file.name,
-      taille: file.size,
-      type: file.type,
-    });
+    console.log("📤 Début de l'upload:", file.name);
 
     const fileContent = await file.arrayBuffer();
     const uint8Array = new Uint8Array(fileContent);
@@ -35,95 +44,56 @@ export const uploadToS3 = async (file) => {
     const response = await s3Client.send(command);
     console.log("✅ Upload réussi:", response);
 
-    return {
-      success: true,
-      fileName: file.name,
-      response,
-    };
+    return { success: true, fileName: file.name };
   } catch (error) {
-    console.error("❌ Erreur détaillée:", {
-      nom: error.name,
-      message: error.message,
-      code: error.$metadata?.httpStatusCode,
-    });
+    console.error("❌ Erreur d'upload:", error);
     throw new Error(`Erreur lors de l'upload: ${error.message}`);
   }
 };
 
-// Récupération des résultats d'analyse
+// 📥 **Récupération des fichiers traités depuis S3**
 export const getAnalysisResults = async (fileName) => {
   try {
     console.log("📥 Récupération des résultats pour:", fileName);
 
-    // Récupérer les statistiques
-    const statsCommand = new GetObjectCommand({
-      Bucket: "processed-csv",
-      Key: `processed-csv/stats/${fileName}`,
-    });
-
-    // Récupérer les données correctes
-    const correctDataCommand = new GetObjectCommand({
-      Bucket: "processed-csv",
-      Key: `processed-csv/correct-data/${fileName}`,
-    });
-
-    // Récupérer les données incorrectes
-    const incorrectDataCommand = new GetObjectCommand({
-      Bucket: "processed-csv",
-      Key: `processed-csv/incorrect-data/${fileName}`,
-    });
-
     const [statsResponse, correctResponse, incorrectResponse] =
       await Promise.all([
-        s3Client.send(statsCommand),
-        s3Client.send(correctDataCommand),
-        s3Client.send(incorrectDataCommand),
+        s3Client.send(
+          new GetObjectCommand({
+            Bucket: "processed-csv",
+            Key: `processed-csv/stats/${fileName}`,
+          })
+        ),
+        s3Client.send(
+          new GetObjectCommand({
+            Bucket: "processed-csv",
+            Key: `processed-csv/correct-data/${fileName}`,
+          })
+        ),
+        s3Client.send(
+          new GetObjectCommand({
+            Bucket: "processed-csv",
+            Key: `processed-csv/incorrect-data/${fileName}`,
+          })
+        ),
       ]);
 
-    return {
-      stats: await statsResponse.Body.transformToByteArray(),
-      correctData: await correctResponse.Body.transformToByteArray(),
-      incorrectData: await incorrectResponse.Body.transformToByteArray(),
-    };
+    // 📌 Convertir les résultats en texte puis en JSON
+    const statsData = await parseCSV(
+      await statsResponse.Body.transformToString()
+    );
+    const correctData = await parseCSV(
+      await correctResponse.Body.transformToString()
+    );
+    const incorrectData = await parseCSV(
+      await incorrectResponse.Body.transformToString()
+    );
+
+    return { stats: statsData, correctData, incorrectData };
   } catch (error) {
     console.error("❌ Erreur lors de la récupération:", error);
     throw new Error(
       `Erreur lors de la récupération des résultats: ${error.message}`
     );
   }
-};
-
-// Test de connexion AWS
-export const testAWSConnection = async () => {
-  try {
-    console.log("🚀 Test de connexion AWS en cours...");
-    const testContent = new TextEncoder().encode("Test de connexion");
-
-    const command = new PutObjectCommand({
-      Bucket: "base-csv",
-      Key: "test.txt",
-      Body: testContent,
-      ContentType: "text/plain",
-    });
-
-    const response = await s3Client.send(command);
-    console.log("✅ Connexion AWS réussie:", response);
-    return true;
-  } catch (error) {
-    console.error("❌ Échec de la connexion AWS:", error);
-    return false;
-  }
-};
-
-// Vérification de la configuration
-export const checkAWSConfig = () => {
-  const config = {
-    region: "eu-north-1",
-    inputBucket: "base-csv",
-    outputBucket: "processed-csv",
-    hasCredentials: !!s3Client.config.credentials,
-  };
-
-  console.log("🔍 Configuration AWS:", config);
-  return config;
 };

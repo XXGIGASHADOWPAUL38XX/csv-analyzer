@@ -8,6 +8,7 @@
         "@aws-sdk/client-sqs": "^3.741.0",
         "@aws-sdk/s3-presigned-post": "^3.0.0",
         "lucide-react": "^0.263.1",
+        "papaparse": "^5.5.2",
         "react": "^18.2.0",
         "react-csv-to-table": "^0.0.4",
         "react-dom": "^18.2.0",
